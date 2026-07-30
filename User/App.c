@@ -1521,9 +1521,15 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
     const uint16_t background[TSL1401_PIXEL_COUNT],
     uint32_t *frequencyHz, uint32_t *windowUs, uint8_t *peakCount)
 {
+    /*
+     * Latency-optimized probe order. The 1 ms window covers most of the band;
+     * 5 ms resolves 1..3 kHz, 200 us covers the upper middle band, and 50 us
+     * covers the top end. The remaining windows are fallbacks for merged or
+     * clipped optical trains.
+     */
     static const uint16_t probeWindowsUs[] = {
-        1000U, 500U, 200U, 100U, 50U,
-        20U, 10U, 2000U, 5000U, 10000U
+        1000U, 5000U, 200U, 50U, 500U,
+        10000U, 100U, 2000U, 20U, 10U
     };
     TSL1401_Stats stats;
     TSL1401_Stats frameStats;
@@ -1539,6 +1545,8 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
     uint32_t trainSpan;
     uint32_t clusterTrainSpan;
     uint32_t frameClusterTrainSpan;
+    uint64_t estimateNumerator;
+    uint64_t estimateDenominator;
     uint16_t prominenceThreshold;
     uint16_t frameProminenceThreshold;
     uint8_t rawLocalPointCount;
@@ -1706,16 +1714,23 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
         /*
          * With the present camera focus, the two mathematical crossings in
          * one sine period form one broad optical cluster. These clusters are
-         * much more stable than their internal shoulders. Count one regular
-         * full-height cluster per input period.
+         * much more stable than their internal shoulders. Their spacing, not
+         * their integer count, gives the frequency without a window-edge
+         * quantization error:
+         *
+         * f = (N - 1) * active_pixels / train_span / window_seconds
          */
         if ((clusterCount >= CCD_FREQ_MIN_POINTS) &&
             (clusterCount <= CCD_FREQ_MAX_POINTS)) {
             if (clusterTrainSpan >= CCD_FREQ_MIN_TRAIN_SPAN) {
-                estimated =
-                    (((uint32_t)clusterCount * 1000000UL) +
-                     (probeWindowsUs[index] / 2U)) /
-                    probeWindowsUs[index];
+                estimateNumerator =
+                    (uint64_t)(clusterCount - 1U) *
+                    CCD_FREQ_ACTIVE_SPAN_PIXELS * 1000000ULL;
+                estimateDenominator =
+                    (uint64_t)clusterTrainSpan * probeWindowsUs[index];
+                estimated = (uint32_t)(
+                    (estimateNumerator + (estimateDenominator / 2ULL)) /
+                    estimateDenominator);
                 estimated = roundFrequency100(estimated);
                 if ((estimated >= F_FREQ_MIN_HZ) &&
                     (estimated <= F_FREQ_MAX_HZ)) {
@@ -1753,9 +1768,9 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
 
         /*
          * The outermost crossings can fall just outside the camera line.
-         * Extrapolate the observed regular spacing across the measured
-         * 90-pixel ramp height. This turns, for example, 8 visible points
-         * spanning 66 pixels into 10 geometric crossings.
+         * Keep the effective-point check for rejecting implausible trains,
+         * but derive frequency directly from the measured point spacing.
+         * There are two zero crossings per input cycle.
          */
         effectivePointCount = (uint8_t)(
             (((uint32_t)CCD_FREQ_ACTIVE_SPAN_PIXELS *
@@ -1765,10 +1780,14 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
             (effectivePointCount > CCD_FREQ_MAX_POINTS)) {
             continue;
         }
-        estimated =
-            (((uint32_t)effectivePointCount * 500000UL) +
-             (probeWindowsUs[index] / 2U)) /
-            probeWindowsUs[index];
+        estimateNumerator =
+            (uint64_t)(localPointCount - 1U) *
+            CCD_FREQ_ACTIVE_SPAN_PIXELS * 500000ULL;
+        estimateDenominator =
+            (uint64_t)trainSpan * probeWindowsUs[index];
+        estimated = (uint32_t)(
+            (estimateNumerator + (estimateDenominator / 2ULL)) /
+            estimateDenominator);
         estimated = roundFrequency100(estimated);
         if ((estimated < F_FREQ_MIN_HZ) ||
             (estimated > F_FREQ_MAX_HZ)) {
@@ -2008,7 +2027,6 @@ static uint32_t ccdMeasureShapeScore(FMode mode, uint32_t exposureMs)
     uint32_t width;
     uint32_t separation = 0U;
     uint32_t midpointError = TSL1401_PIXEL_COUNT;
-    uint32_t targetPeaks;
 
     if (!TSL1401_captureFiltered(gCCDPixels, exposureMs, 1U)) {
         return CCD_AUTO_BAD_SCORE;
@@ -2021,23 +2039,28 @@ static uint32_t ccdMeasureShapeScore(FMode mode, uint32_t exposureMs)
         return CCD_AUTO_BAD_SCORE - 1U;
     }
 
-    if (mode == F_MODE_AUTO_LINE) {
+    if ((mode == F_MODE_AUTO_LINE) ||
+        (mode == F_MODE_AUTO_INFINITY)) {
         /*
-         * Requirement 5 uses the linear CCD as a transverse test line. After
-         * subtracting the same-exposure grid background, a straight trace
-         * has one intersection while an open ellipse has two. Prefer one
-         * compact bright cluster; peak count is the primary discriminator.
+         * The CCD is mounted vertically through X=0. A correct diagonal line
+         * crosses it once at the screen center. For y=sin(2*x+phase), both
+         * X=0 crossings also coincide at one point; that point is centered
+         * only when the infinity figure has the required symmetric phase.
+         * Therefore line and infinity both need one compact centered peak.
          */
         width = ccdStatsWidth(&stats);
         score = (uint32_t)abs((int)stats.peakCount - 1) * 5000U;
         score += width * 100U;
+        midpointError = (uint32_t)abs(
+            ((int)stats.peakCenter[0] * 2) -
+            (int)(TSL1401_PIXEL_COUNT - 1U));
+        score += midpointError * 40U;
         return score;
     }
 
     width = ccdStatsWidth(&stats);
-    targetPeaks = 2U;
     score = (uint32_t)abs(
-        (int)stats.peakCount - (int)targetPeaks) * 5000U;
+        (int)stats.peakCount - 2) * 5000U;
     score += width * 100U;
 
     if (stats.peakCount >= 2U) {
@@ -2048,11 +2071,8 @@ static uint32_t ccdMeasureShapeScore(FMode mode, uint32_t exposureMs)
             (int)stats.peakCenter[stats.peakCount - 1U] -
             (int)(TSL1401_PIXEL_COUNT - 1U));
     }
-    if (mode == F_MODE_AUTO_CIRCLE) {
-        score += (TSL1401_PIXEL_COUNT - 1U - separation) * 20U;
-    } else {
-        score += midpointError * 40U;
-    }
+    score += (TSL1401_PIXEL_COUNT - 1U - separation) * 20U;
+    score += midpointError * 40U;
     return score;
 }
 
@@ -2485,17 +2505,32 @@ static void showStatus(void)
 static void serviceControls(void)
 {
     BTNData_t buttons;
+    bool electricalInputPresent;
     int encoderDelta;
     uint8_t nextDiv;
     uint16_t nextAmp;
     uint16_t phaseOffset;
+    uint32_t detectedFrequencyHz;
     uint32_t outputFreqHz;
 
     BTN_getData(&buttons);
     if (buttons.left) {
-        phaseLockSelectDirect();
-        UserUART_write(
-            "F_EVENT key=left requirement=1 relay=direct lock=preserved\r\n");
+        electricalInputPresent = gPhaseLock.enabled && gPhaseLock.locked;
+        if (!electricalInputPresent) {
+            electricalInputPresent =
+                measureInputFrequency(&detectedFrequencyHz);
+        }
+        if (!electricalInputPresent) {
+            UserUART_write(
+                "F_EVENT key=left optical_auto=line "
+                "reason=electrical_input_absent\r\n");
+            startAutoMode(F_MODE_AUTO_LINE);
+        } else {
+            phaseLockSelectDirect();
+            UserUART_write(
+                "F_EVENT key=left requirement=1 relay=direct "
+                "lock=preserved\r\n");
+        }
     }
     else if (buttons.down) {
         nextDiv = (uint8_t)(gFControl.targetDiv + 2U);
@@ -2527,7 +2562,17 @@ static void serviceControls(void)
                         (unsigned long)outputFreqHz);
     }
     else if (buttons.right) {
-        if (!gPhaseLock.enabled) {
+        electricalInputPresent = gPhaseLock.enabled && gPhaseLock.locked;
+        if (!electricalInputPresent) {
+            electricalInputPresent =
+                measureInputFrequency(&detectedFrequencyHz);
+        }
+        if (!electricalInputPresent) {
+            UserUART_write(
+                "F_EVENT key=right optical_auto=infinity "
+                "reason=electrical_input_absent\r\n");
+            startAutoMode(F_MODE_AUTO_INFINITY);
+        } else if (!gPhaseLock.enabled) {
             UserUART_write(
                 "F_EVENT key=right electrical_lock=off "
                 "ignored=1 action=press_up_first\r\n");
@@ -2552,8 +2597,6 @@ static void serviceControls(void)
         }
     }
     else if (buttons.up) {
-        uint32_t detectedFrequencyHz;
-
         phaseLockStop(true);
         setFState(F_STATE_SEARCHING);
         if (measureInputFrequency(&detectedFrequencyHz)) {
@@ -2571,7 +2614,17 @@ static void serviceControls(void)
         }
     }
     else if (buttons.mid) {
-        if (!gPhaseLock.enabled) {
+        electricalInputPresent = gPhaseLock.enabled && gPhaseLock.locked;
+        if (!electricalInputPresent) {
+            electricalInputPresent =
+                measureInputFrequency(&detectedFrequencyHz);
+        }
+        if (!electricalInputPresent) {
+            UserUART_write(
+                "F_EVENT key=mid optical_auto=circle "
+                "reason=electrical_input_absent\r\n");
+            startAutoMode(F_MODE_AUTO_CIRCLE);
+        } else if (!gPhaseLock.enabled) {
             UserUART_write(
                 "F_EVENT key=mid electrical_lock=off "
                 "ignored=1 action=press_up_first\r\n");
