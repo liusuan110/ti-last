@@ -40,13 +40,26 @@ void DacOutput_init(void)
 
 void DacOutput_service(void)
 {
+    bool transferDone;
+
     /*
-     * Repeat mode should keep DMAEN set. Re-arm if a transient or an older
-     * generated configuration clears it.
+     * DAC DMA completion can disable the DAC-side DMA trigger while the DMA
+     * channel itself still reports enabled. Checking only DMAEN therefore
+     * leaves a windowed ramp frozen at its final sample during blocking CCD
+     * captures. Clear DMA_DONE, reload the full frame, and explicitly reopen
+     * the DAC trigger. SysTick calls this service even while App.c is blocked.
      */
+    transferDone = (DL_DAC12_getInterruptStatus(
+        DAC0, DL_DAC12_INTERRUPT_DMA_DONE) != 0U);
+    if (transferDone) {
+        DL_DAC12_clearInterruptStatus(
+            DAC0, DL_DAC12_INTERRUPT_DMA_DONE);
+    }
     if (gPlaying && (gActiveSamples != NULL) && (gActiveCount != 0U) &&
-        !DL_DMA_isChannelEnabled(DMA, DMA_CH2_CHAN_ID)) {
+        (transferDone ||
+         !DL_DMA_isChannelEnabled(DMA, DMA_CH2_CHAN_ID))) {
         armDMA(gActiveSamples, gActiveCount);
+        DL_DAC12_enableDMATrigger(DAC0);
     }
 }
 

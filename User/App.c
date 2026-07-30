@@ -119,7 +119,12 @@
 #define CCD_FREQ_SETTLE_MS 250U
 #define CCD_FREQ_SAMPLE_FRAMES 3U
 #define CCD_FREQ_MIN_TRAIN_SPAN 60U
-#define CCD_FREQ_ACTIVE_SPAN_PIXELS 90U
+/*
+ * Calibrated vertical span painted by PA15 codes 256..3840 on the present
+ * scope/camera geometry. At 1 kHz with a 5 ms ramp, ten zero crossings occupy
+ * nine intervals over 74 pixels, giving a full active span of 82.2 pixels.
+ */
+#define CCD_FREQ_ACTIVE_SPAN_PIXELS 82U
 #define CCD_FREQ_CLUSTER_THRESHOLD_PERCENT 10U
 #define CCD_AUTO_TARGET_PEAKS 2U
 #define CCD_AUTO_BAD_SCORE 1000000UL
@@ -1273,7 +1278,6 @@ static bool runCCDFrequencyRecognition(void)
     uint32_t fineFrequencyHz;
     uint32_t detectedFrequencyHz;
     uint32_t probeWindowUs;
-    uint32_t searchExposureMs = CCD_AUTO_SEARCH_EXPOSURE_MS;
     uint16_t outputAmplitude;
     uint8_t coarsePeaks;
 
@@ -1306,7 +1310,6 @@ static bool runCCDFrequencyRecognition(void)
     }
     APP_UART_PRINTF("CCD_FREQ exposure_ms=%lu\r\n",
         (unsigned long)gCCDExposureMs);
-    searchExposureMs = gCCDExposureMs;
 
     if (!ccdEstimateFrequency(gCCDExposureMs, gCCDBackground,
             &coarseFrequencyHz, &probeWindowUs, &coarsePeaks)) {
@@ -1324,23 +1327,18 @@ static bool runCCDFrequencyRecognition(void)
         (unsigned long)probeWindowUs, (unsigned int)coarsePeaks,
         (unsigned long)Tick_elapsed(startTick));
 
+    /*
+     * The spacing estimate already resolves the specified 100 Hz grid.
+     * Do not sweep DDS candidates here: the oscilloscope's long persistence
+     * accumulates old candidates, so "narrowest trace" selected an unrelated
+     * frequency even when the optical crossing train was correct.
+     */
     setFState(F_STATE_LOCKING);
-    fineFrequencyHz = ccdSearchFrequency(
-        coarseFrequencyHz, searchExposureMs, gCCDBackground);
+    fineFrequencyHz = coarseFrequencyHz;
     detectedFrequencyHz = coarseFrequencyHz;
-    if ((fineFrequencyHz < F_FREQ_MIN_HZ) ||
-        (fineFrequencyHz > F_FREQ_MAX_HZ)) {
-        APP_UART_PRINTF(
-            "CCD_FREQ fine_fallback_hz=%lu reason=no_valid_candidate\r\n",
-            (unsigned long)detectedFrequencyHz);
-    } else {
-        detectedFrequencyHz = fineFrequencyHz;
-        APP_UART_PRINTF(
-            "CCD_FREQ fine_selected_hz=%lu coarse_hz=%lu "
-            "decision=accept_narrowest_trace\r\n",
-            (unsigned long)fineFrequencyHz,
-            (unsigned long)coarseFrequencyHz);
-    }
+    APP_UART_PRINTF(
+        "CCD_FREQ spacing_selected_hz=%lu fine_search=disabled\r\n",
+        (unsigned long)detectedFrequencyHz);
 
     DacOutput_stop();
     outputAmplitude = ampFromDiv(8U, detectedFrequencyHz);
@@ -1640,11 +1638,13 @@ static bool ccdEstimateFrequency(uint32_t exposureMs,
                     frameCenters[0]) : 0U;
 
             APP_UART_PRINTF(
-                "CCD_FRAME window_us=%u frame=%u clusters=%u "
+                "CCD_FRAME window_us=%u frame=%u peaks=%u span=%u clusters=%u "
                 "cluster_gap=%u..%u cluster_span=%lu raw=%u "
                 "regular=%u gap=%u..%u train_span=%lu\r\n",
                 (unsigned int)probeWindowsUs[index],
                 (unsigned int)(frame + 1U),
+                (unsigned int)frameStats.peakCount,
+                (unsigned int)(frameStats.maximum - frameStats.minimum),
                 (unsigned int)frameClusterCount,
                 (unsigned int)frameClusterMinimumGap,
                 (unsigned int)frameClusterMaximumGap,
