@@ -1,0 +1,11 @@
+Debug/
+Release/
+build_verify/
+.clangd
+*.out
+*.map
+*.d
+*.o
+*.obj
+*.xml
+!targetConfigs/*.ccxml
