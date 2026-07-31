@@ -51,7 +51,7 @@
   set par(
     first-line-indent: (amount: 2em, all: true),
     leading: 20pt,
-    spacing: 12pt,
+    spacing: 20pt,
     linebreaks: "optimized",
     justify: true,
   )
