@@ -42,8 +42,6 @@
     #v(2.0cm)
     #align(left)[
       #box(width: 360pt)[
-        #info-row("编    号：")
-        #v(10pt)
         #info-row("选    题：", content: problem-id + " 题  " + problem-name)
         #if show-information [
           #v(10pt)
