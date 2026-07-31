@@ -18,6 +18,7 @@ const GPIO1         = GPIO.addInstance();
 const GPIO2         = GPIO.addInstance();
 const GPIO3         = GPIO.addInstance();
 const GPIO4         = GPIO.addInstance();
+const GPIO5         = GPIO.addInstance();
 const DMA           = scripting.addModule("/ti/driverlib/DMA");
 const MATHACL       = scripting.addModule("/ti/driverlib/MATHACL");
 const PWM           = scripting.addModule("/ti/driverlib/PWM", {}, false);
@@ -132,22 +133,27 @@ Board.peripheral.swdioPin.$assign = "PA19";
 GPIO1.$name                          = "GPIO_DDS";
 GPIO1.associatedPins.create(5);
 GPIO1.associatedPins[0].$name        = "DDS_SCLK";
+GPIO1.associatedPins[0].direction    = "INPUT";
 GPIO1.associatedPins[0].assignedPort = "PORTA";
 GPIO1.associatedPins[0].assignedPin  = "8";
 GPIO1.associatedPins[0].pin.$assign  = "PA8";
 GPIO1.associatedPins[1].$name        = "DDS_SDIO0";
+GPIO1.associatedPins[1].direction    = "INPUT";
 GPIO1.associatedPins[1].assignedPort = "PORTA";
 GPIO1.associatedPins[1].assignedPin  = "9";
 GPIO1.associatedPins[1].pin.$assign  = "PA9";
 GPIO1.associatedPins[2].$name        = "DDS_CS";
+GPIO1.associatedPins[2].direction    = "INPUT";
 GPIO1.associatedPins[2].assignedPort = "PORTB";
 GPIO1.associatedPins[2].assignedPin  = "3";
 GPIO1.associatedPins[2].pin.$assign  = "PB3";
 GPIO1.associatedPins[3].$name        = "DDS_UPDATE";
+GPIO1.associatedPins[3].direction    = "INPUT";
 GPIO1.associatedPins[3].assignedPort = "PORTB";
 GPIO1.associatedPins[3].assignedPin  = "2";
 GPIO1.associatedPins[3].pin.$assign  = "PB2";
 GPIO1.associatedPins[4].$name        = "DDS_RST";
+GPIO1.associatedPins[4].direction    = "INPUT";
 GPIO1.associatedPins[4].assignedPort = "PORTA";
 GPIO1.associatedPins[4].assignedPin  = "7";
 GPIO1.associatedPins[4].pin.$assign  = "PA7";
@@ -213,6 +219,18 @@ GPIO4.associatedPins[0].$name        = "CTRL";
 GPIO4.associatedPins[0].assignedPort = "PORTA";
 GPIO4.associatedPins[0].assignedPin  = "13";
 GPIO4.associatedPins[0].pin.$assign  = "PA13";
+
+/*
+ * Dedicated external sound/light output.
+ * PA1 high: S8050 on, external active buzzer and LED both on.
+ * PA1 low:  S8050 off, both loads off. This pin is not shared with RGB/DDS.
+ */
+GPIO5.$name                          = "GPIO_SOUND_LIGHT";
+GPIO5.associatedPins.create(1);
+GPIO5.associatedPins[0].$name        = "ALERT";
+GPIO5.associatedPins[0].assignedPort = "PORTA";
+GPIO5.associatedPins[0].assignedPin  = "1";
+GPIO5.associatedPins[0].pin.$assign  = "PA1";
 
 PWM1.$name                              = "PWM_LED_RG";
 PWM1.timerCount                         = 1023;

@@ -1,0 +1,28 @@
+{
+  "threshold": 120,
+  "min_points": 100,
+  "use_bg": false,
+  "fast": true,
+  "thin_scale": 0.5,
+  "mask_mode": "hsv",
+  "hue_min": 20,
+  "hue_max": 50,
+  "sat_min": 40,
+  "val_min": 80,
+  "frequency_val_min": 40,
+  "frequency_min_component_area": 18,
+  "frequency_scale": 1.013,
+  "temporal_frames": 3,
+  "roi": {
+    "x": 150,
+    "y": 160,
+    "w": 830,
+    "h": 610
+  },
+  "frequency_roi": {
+    "x": 150,
+    "y": 160,
+    "w": 830,
+    "h": 610
+  }
+}

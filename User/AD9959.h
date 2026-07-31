@@ -53,8 +53,13 @@
 #define AD9959_CH2 0x40
 #define AD9959_CH3 0x80
 
-/* 500 MHz DDS system clock: one FTW LSB is about 0.116415 Hz. */
-#define AD9959_FTW_PER_HZ 8.589934592F
+/*
+ * Run directly from the module's 25 MHz reference. Requirement 1-5 only
+ * needs 1 kHz to 200 kHz, so the x20 PLL adds lock risk without useful
+ * output bandwidth. One FTW LSB is about 0.00582077 Hz in bypass mode.
+ */
+#define AD9959_SYSTEM_CLOCK_HZ 25000000U
+#define AD9959_FTW_PER_HZ      171.79869184F
 
 //FR1[9:8] 调制电平选择位
 #define LEVEL_MOD_2     0x00 //2电平调制  2阶调制
@@ -74,7 +79,9 @@
 
 void AD9959_delayMicros(uint32_t us);
 void AD9959_reset(void);                 //AD9959复位
+void AD9959_holdReset(void);
 void AD9959_IOUpdate(void);           //AD9959更新数据
+void AD9959_busHiZ(void);
 void AD9959_IOInit(void);                //IO口电平状态初始化
 void AD9959_init(void);            //IO口初始化
 
