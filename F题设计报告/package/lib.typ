@@ -50,18 +50,18 @@
   // 正文首行缩进和行距设置（行距固定 22pt，符合赛题排版要求）
   set par(
     first-line-indent: (amount: 2em, all: true),
-    leading: 22pt,
-    spacing: 22pt,
+    leading: 20pt,
+    spacing: 12pt,
     linebreaks: "optimized",
     justify: true,
   )
   // 块级公式与正文的上下间距（避免公式与相邻文字行重叠）
   show math.equation.where(block: true): set block(above: 16pt, below: 16pt)
   // 列表整体与正文的间距、列表项之间的间距
-  show list: set block(above: 22pt, below: 22pt)
+  show list: set block(above: 14pt, below: 14pt)
   show enum: set block(above: 14pt, below: 14pt)
-  set list(spacing: 22pt, indent: 1em, body-indent: 0.6em)
-  set enum(spacing: 32pt, indent: 1em, body-indent: 0.8em)
+  set list(spacing: 12pt, indent: 1em, body-indent: 0.6em)
+  set enum(spacing: 12pt, indent: 1em, body-indent: 0.8em)
   // 粗体强调：保留行内属性，仅加细微描边模拟粗体
   show strong: it => {
     show regex("[\p{hani}\s]+"): set text(stroke: 0.02857em)
@@ -76,7 +76,7 @@
     #v(8pt)
     #align(center)[
       #stack(
-        spacing: 2pt,
+        spacing: 4pt,
         {
           set text(font: ("Times New Roman", "SimSun"), size: 10.5pt)
           [表#counter(figure.where(kind: table)).display("1")#h(0.5em)#it.caption.body]
@@ -174,14 +174,12 @@
     ]
   ]
 
-  // 三线表全局样式：顶线 + 表头下分隔线 + 底线；表内文字五号
   set table(
-    stroke: (x, y) => (bottom: if y == 0 { 0.6pt } else { 0pt }),
+    stroke: 0.4pt,
     inset: (x: 8pt, y: 6pt),
     align: (x, y) => (if y == 0 { center } else { left }) + horizon,
     fill: none,
   )
-  show table: it => block(stroke: (top: 0.9pt, bottom: 0.9pt), inset: 0pt, it)
   show table.cell.where(y: 0): set text(weight: "bold")
   show table: set text(font: ("Times New Roman", "SimSun"), size: 10.5pt)
 

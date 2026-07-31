@@ -6,10 +6,10 @@
 ) = {
   v(1.2cm)
   align(center)[
-    #text(font: ("Times New Roman", "SimSun"), size: 16pt, weight: "bold")[摘要]
+    #text(font: ("Times New Roman", "SimHei"), size: 16pt, weight: "bold")[摘要]
   ]
   v(1cm)
-  text(font: ("Times New Roman", "SimSun"), size: 12pt)[#body]
+  text(font: ("Times New Roman", "SimSun"), size: 12pt, weight: "bold")[#body]
 
   v(1cm)
   let keyword_list = keywords.join("； ")

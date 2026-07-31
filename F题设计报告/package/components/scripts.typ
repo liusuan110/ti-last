@@ -34,6 +34,15 @@
     #set par(first-line-indent: 0em, spacing: 0pt)
     附录 #context appendix-num.display()：#title
   ]
+  set table(
+    stroke: (x, y) => (bottom: if y == 0 { 0.6pt } else { 0pt }),
+    inset: (x: 8pt, y: 6pt),
+    align: (x, y) => (if y == 0 { center } else { left }) + horizon,
+    fill: none,
+  )
+  show table: it => block(stroke: (top: 0.9pt, bottom: 0.9pt), inset: 0pt, it)
+  show table.cell.where(y: 0): set text(weight: "bold")
+  show table: set text(font: ("Times New Roman", "SimSun"), size: 10.5pt)
   body
 }
 
