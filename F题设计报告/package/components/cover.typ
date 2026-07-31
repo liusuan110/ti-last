@@ -44,10 +44,10 @@
       #box(width: 360pt)[
         #info-row("编    号：")
         #v(10pt)
-        #info-row("题    目：", content: problem-id + " 题  " + problem-name)
+        #info-row("选    题：", content: problem-id + " 题  " + problem-name)
         #if show-information [
           #v(10pt)
-          #info-row("参赛队号：", content: team-id)
+          #info-row("赛区编号：", content: team-id)
           #v(10pt)
           #info-row("参赛学校：", content: school)
           #for (idx, member) in team-members.enumerate() [

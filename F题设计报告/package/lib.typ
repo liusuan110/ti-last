@@ -55,30 +55,44 @@
     linebreaks: "optimized",
     justify: true,
   )
+  // 块级公式与正文的上下间距（避免公式与相邻文字行重叠）
+  show math.equation.where(block: true): set block(above: 16pt, below: 16pt)
+  // 列表整体与正文的间距、列表项之间的间距
+  show list: set block(above: 22pt, below: 22pt)
+  show enum: set block(above: 14pt, below: 14pt)
+  set list(spacing: 22pt, indent: 1em, body-indent: 0.6em)
+  set enum(spacing: 32pt, indent: 1em, body-indent: 0.8em)
+  // 粗体强调：保留行内属性，仅加细微描边模拟粗体
+  show strong: it => {
+    show regex("[\p{hani}\s]+"): set text(stroke: 0.02857em)
+    it
+  }
   // 图表标题样式
   show figure.caption: it => {
     text(font: ("Times New Roman", "SimSun"), size: 10.5pt)[#it.body]
   }
-  // 表格：三线表风格（表名在表上，居中）
+  // 表格：三线表风格（表名在表上，居中），caption 与 body 整体不可分页
   show figure.where(kind: table): it => [
-    #v(10pt, weak: true)
+    #v(14pt)
     #align(center)[
-      #it.caption
-      #v(4pt)
-      #it.body
+      #block[
+        #it.caption
+        #v(4pt)
+        #it.body
+      ]
     ]
-    #v(10pt, weak: true)
+    #v(14pt)
   ]
   // 图：图名在图下，居中
   show figure.where(kind: image): it => [
-    #v(10pt, weak: true)
+    #v(14pt)
     #align(center)[#it]
-    #v(10pt, weak: true)
+    #v(14pt)
   ]
   show figure.where(kind: raw): it => [
-    #v(6pt, weak: true)
+    #v(8pt)
     #it
-    #v(6pt, weak: true)
+    #v(8pt)
   ]
   show figure.where(kind: raw): it => {
     set block(width: 100%, breakable: true)
@@ -93,7 +107,7 @@
     #counter(heading.where(level: 3)).update(1)
     #let num_1 = counter(heading.where(level: 1)).get().at(0)
 
-    #v(18pt, weak: true)
+    #v(26pt)
     #par(first-line-indent: (amount: 0em, all: true), leading: 22pt, spacing: 0pt)[
       #align(center)[
         #text(font: ("Times New Roman", "SimHei"), size: 16pt, weight: "bold")[
@@ -105,7 +119,7 @@
         ]
       ]
     ]
-    #v(12pt, weak: true)
+    #v(18pt)
   ]
   // 二级标题样式
   show heading.where(level: 2): it => [
@@ -116,7 +130,7 @@
     #let num_2 = counter(heading.where(level: 2)).get().at(0)
 
     // 二级标题样式具体设置
-    #v(14pt, weak: true)
+    #v(20pt)
     #par(first-line-indent: (amount: 0em, all: true), leading: 22pt, spacing: 0pt)[
       #text(font: ("Times New Roman", "SimHei"), size: 14pt, weight: "bold")[
         #numbering("1.1", num_1, num_2)
@@ -124,7 +138,7 @@
         #it.body
       ]
     ]
-    #v(8pt, weak: true)
+    #v(12pt)
   ]
   // 三级标题样式
   show heading.where(level: 3): it => [
@@ -135,7 +149,7 @@
     #let num_3 = counter(heading.where(level: 3)).get().at(0)
 
     // 三级标题样式具体设置
-    #v(10pt, weak: true)
+    #v(14pt)
     #par(first-line-indent: (amount: 0em, all: true), leading: 22pt, spacing: 0pt)[
       #text(font: ("Times New Roman", "SimHei"), size: 12pt, weight: "bold")[
         #numbering("1.1.1", num_1, num_2 - 1, num_3)
@@ -143,7 +157,7 @@
         #it.body
       ]
     ]
-    #v(6pt, weak: true)
+    #v(10pt)
   ]
   // 代码标题样式
   show raw.where(block: true): block => [
@@ -178,11 +192,12 @@
       show-information: show-information,
     )
   }
-  counter(page).update(1)
+  counter(page).update(0)
   abstract-page(
     body: abstract,
     keywords: keywords,
   )
+  counter(page).update(1)
   if show-outline {
     outline()
     pagebreak()

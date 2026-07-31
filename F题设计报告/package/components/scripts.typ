@@ -1,7 +1,19 @@
 #import "@preview/ctheorems:1.1.3": *
 #let bib(bibliography-file) = {
   show bibliography: set text(10.5pt)
-  set bibliography(title: "参考文献", style: "gb-7714-2015-numeric")
+  // 手动渲染"参考文献"标题，禁用 ctheorems 自带标题（避免计入 heading 序列）
+  block(
+    width: 100%,
+    above: 26pt,
+    below: 18pt,
+    breakable: false,
+  )[
+    #set align(center)
+    #set text(font: ("Times New Roman", "SimHei"), size: 16pt, weight: "bold")
+    #set par(first-line-indent: 0em, spacing: 0pt)
+    参考文献
+  ]
+  set bibliography(title: none, style: "gb-7714-2015-numeric")
   bibliography-file
   v(12pt)
 }
@@ -10,14 +22,19 @@
 
 #let appendix(title, body) = {
   appendix-num.step()
-  table(
-    fill: (_, row) => if row == 0 or row == 1 { luma(200) } else { none },
-    rows: 3,
-    columns: 1fr,
-    text[*附录 #context appendix-num.display()：*],
-    text[*#title*],
-    body
-  )
+  // 附录标题：使用居中加粗的大字号，手动编号，不计入正文 heading 序列
+  block(
+    width: 100%,
+    above: 28pt,
+    below: 18pt,
+    breakable: false,
+  )[
+    #set align(center)
+    #set text(font: ("Times New Roman", "SimHei"), size: 16pt, weight: "bold")
+    #set par(first-line-indent: 0em, spacing: 0pt)
+    附录 #context appendix-num.display()：#title
+  ]
+  body
 }
 
 #let split_table(

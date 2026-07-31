@@ -13,7 +13,7 @@
     本装置以 TI MSPM0G3507 微控制器（番茄派开发板）为控制核心，以 AD9959 四通道 DDS 为信号发生单元，实现对示波器 X-Y 模式下李萨如图形（对角线/圆/"∞"）的频率倍数、相位差与幅度的可编程精确控制。常规模式下，输入正弦经衰减与偏置后与 DDS 输出经比较整形，采用数字锁相环维持同频输出的相位目标（0°/90°）；输出端由 AD9959 产生同频、正交与二倍频正弦信号，经重建滤波与放大后输出到示波器 Y 轴，并通过"频率-目标跨度-幅度字"标定表实现 2/4/6/8#[div] 峰峰值精确设定。针对要求 5（断开电气连接），装置使用线性 CCD 对示波器屏幕固定竖直采样线进行一维扫描，通过阈值分割提取交点数量、跨度与对称性等无量纲特征作为闭环反馈；并结合"斜坡激励判频 + 100#[Hz] 细搜频 + 扫相位识别 + 连续跟踪"的自动流程，实现三种图形的一键自动显示与稳定保持。
   ],
   keywords: ("李萨如图形", "AD9959 DDS", "MSPM0G3507", "数字锁相环", "线性CCD闭环"),
-  show-teachers: true,
+  show-teachers: false,
   show-cover: true,
   show-information: true,
   show-outline: false,
@@ -30,52 +30,7 @@
   #align(center)[#text(size: 9.5pt)[#label]]
 ]
 
-#let diag-arrow() = text(size: 12pt, weight: "bold")[→]
-
 #let diag-flow-arrow() = text(size: 14pt, weight: "bold")[↓]
-
-#let system-diagram() = {
-  let b0 = diag-block("信号源\n(1k~100kHz)");
-  let b1 = diag-block("输入调理\n& 整形");
-  let b2 = diag-block("直通/切换\n继电器");
-  let b3 = diag-block("AD9959 DDS\n+ 滤波放大");
-  let b4 = diag-block("示波器\nX-Y 显示");
-  let c0 = diag-block("MSPM0G3507\n控制与闭环", width: 120pt);
-  let c1 = diag-block("线性 CCD\nTSL1401", width: 78pt);
-
-  stack(
-    spacing: 8pt,
-    align(center)[
-      #stack(
-        dir: ltr,
-        spacing: 4pt,
-        b0,
-        diag-arrow(),
-        b1,
-        diag-arrow(),
-        b2,
-        diag-arrow(),
-        b3,
-        diag-arrow(),
-        b4,
-      )
-    ],
-    align(center)[
-      #stack(
-        dir: ltr,
-        spacing: 14pt,
-        c1,
-        diag-arrow(),
-        c0,
-        diag-arrow(),
-        diag-block("按键/编码器\n蜂鸣器/RGB", width: 98pt),
-      )
-    ],
-    align(center)[#text(size: 9.5pt, fill: luma(80))[
-      控制关系：MSPM0 配置 AD9959 频率/相位/幅度，控制继电器切换；自动模式下采集 CCD 反馈并调参。
-    ]],
-  )
-}
 
 #let auto-flow-diagram() = {
   stack(
@@ -127,7 +82,7 @@
 因此装置的核心任务归结为 *对输出信号的频率倍数、相位、幅度进行精确、可闭环的控制*。据此我们将系统划分为五大功能模块：输入调理与测频模块、DDS 信号合成模块、输出放大与幅度标定模块、直通/继电切换模块、以及要求 5 的线性 CCD 光学闭环与自动控制模块。系统总体框图如 @fig-system 所示。
 
 #figure(
-  system-diagram(),
+  image("figures/硬件框图.png", width: 100%),
   caption: [装置系统总体框图],
 ) <fig-system>
 
@@ -232,9 +187,9 @@ $ "POW"_(k+1) = "POW"_k + K_p e_k + K_i sum_(j=0)^k e_j. $
 主控固件采用前后台架构：周期任务触发 ADC 采样完成鉴相量统计（均值/纹波），后台 PI 环路更新 DDS 相位字并在锁定后估计频率微调；主循环运行状态机与命令解析。UART0（PA10 / PA11，115200 8N1）用于调试打印与联调控制命令。手动/联调命令集见 @tbl-cmd。
 
 #figure(
-  auto-flow-diagram(),
-  caption: [自动模式主流程图],
-) <fig-flow>
+  image("figures/软件框图.png", width: 100%),
+  caption: [固件软件架构与前后台协作框图],
+) <fig-sw-arch>
 
 #figure(
   table(
@@ -279,17 +234,17 @@ $ "POW"_(k+1) = "POW"_k + K_p e_k + K_i sum_(j=0)^k e_j. $
 
 == 测试仪器与方法
 
-测试仪器如表 @tbl-inst（型号与关键指标现场填写）。
+测试仪器如表 @tbl-inst（关键指标/设置现场填写）。
 
 #figure(
   table(
-    columns: (auto, auto, 1.4fr),
-    [*仪器名称*], [*型号*], [*关键指标/设置*],
-    [数字示波器], [待填], [0.5#[V/div]，X-Y 模式，网格显示常开],
-    [函数信号源], [待填], [1#[kHz]#[~]100#[kHz]，步进 100#[Hz]],
-    [线性 CCD 采样模块], [待填], [像元数/采样频率待填，遮光罩+窄缝固定视场],
-    [直流稳压电源], [待填], [输出电压/限流待填],
-    [数字万用表], [待填], [基本量程/精度待填],
+    columns: (auto, 1.6fr),
+    [*仪器名称*], [*关键指标/设置*],
+    [数字示波器], [0.5#[V/div]，X-Y 模式，网格显示常开],
+    [函数信号源], [1#[kHz]#[~]100#[kHz]，步进 100#[Hz]],
+    [线性 CCD 采样模块], [像元数/采样频率待填，遮光罩+窄缝固定视场],
+    [直流稳压电源], [输出电压/限流待填],
+    [数字万用表], [基本量程/精度待填],
   ),
   caption: [测试仪器与关键设置],
 ) <tbl-inst>
@@ -381,7 +336,7 @@ $ "POW"_(k+1) = "POW"_k + K_p e_k + K_i sum_(j=0)^k e_j. $
     [编码器旋转], [手动微调相位字（步进 64）],
     [编码器按下], [关闭 DDS 输出],
   )
-  v(8pt)
+  #v(8pt)
   #table(
     columns: (1fr, 2fr),
     align: (left, left),
