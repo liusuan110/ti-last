@@ -3,6 +3,7 @@
 #include "BTN.h"
 #include "Encoder.h"
 #include "RGBLED.h"
+#include "SoundLight.h"
 
 volatile uint32_t Tick = 0U;
 
@@ -30,4 +31,5 @@ void Tick_SysTickCallback(void)
     RGBLED_RainbowTick++;
     BTN_tick();
     ENC_tick();
+    SoundLight_tick();
 }

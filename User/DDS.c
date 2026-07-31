@@ -8,14 +8,13 @@ static DDS_SweepType_t getSweepParam(DDS_SweepParam_t* param);
 void DDS_init(void) {
     AD9959_init();
     /*
-     * AD9959_init() commits FR1 and enables the x20 PLL. Keep all channel
-     * register writes away from the PLL start-up interval. The original
-     * delay in AD9959.c was placed after a // comment and never executed.
+     * AD9959_init() leaves the multiplier disabled and commits 25 MHz
+     * reference-clock bypass mode. Keep channel writes after clock settling.
      */
     AD9959_delayMicros(50000U);
     /*
      * Master reset leaves the channel phase accumulators held clear. Release
-     * them explicitly only after the x20 PLL has had time to settle.
+     * them explicitly only after the reference-clock path has settled.
      */
     AD9959_configureSingleToneChannels();
 }

@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+runlogs/
+captures/
+*.jpg
+*.jpeg
+*.png

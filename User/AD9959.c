@@ -1,8 +1,9 @@
 #include "AD9959.h"
 
 #define AD9959_POWER_ON_SETTLE_US 100000U
-#define AD9959_RESET_SETTLE_US     5000U
-#define AD9959_PLL_SETTLE_US      50000U
+#define AD9959_RESET_HIGH_US        1000U
+#define AD9959_RESET_SETTLE_US     10000U
+#define AD9959_REFCLK_SETTLE_US    10000U
 #define AD9959_IO_UPDATE_PULSE_US     5U
 
 /**
@@ -20,12 +21,13 @@
  * AD9959模块其余数据引脚均接GND
 */
 
-uint8_t FR1_DATA[3] = {0xD0,0x00,0x00};//VCO gain control[23]=1系统时钟高于255Mhz; PLL[22:18]=10100,20倍频,20*25M=500MHZ; Charge pump control = 75uA 
+/* PLL disabled: use the stable 25 MHz reference clock directly. */
+uint8_t FR1_DATA[3] = {0x00,0x00,0x00};
 
 uint8_t FR2_DATA[2] = {0x00,0x00};    // 双方向扫描，即从起始值扫到结束值后，又从结束值扫到起始值
 //uint8_t FR2_DATA[2] = {0x80,0x00};// 单方向扫描，即从起始值扫到结束值后，又从起始值扫到结束值，以此类推
 
-float ACC_FRE_FACTOR = AD9959_FTW_PER_HZ;    //频率因子=(2^32)/500000000
+float ACC_FRE_FACTOR = AD9959_FTW_PER_HZ;
 
 /*
  * Normal single-tone channel state. A master reset leaves CFR[1]
@@ -59,22 +61,95 @@ void AD9959_init(void) {
     AD9959_delayMicros(AD9959_POWER_ON_SETTLE_US);
     AD9959_reset(); // AD9959复位
 
-    //初始化功能寄存器
-    AD9959_writeDataSlow(FR1_ADD, 3, FR1_DATA); // 写功能寄存器1
-    AD9959_IOUpdate(); // 先使FR1中的PLL配置进入活动寄存器
-    AD9959_delayMicros(AD9959_PLL_SETTLE_US); // 等待PLL锁定
-    //AD9959_writeData(FR2_ADD, 2, FR2_DATA); // 写功能寄存器2
+    /*
+     * Keep the internal PLL/VCO disabled permanently. At 25 MHz the highest
+     * required 200 kHz output still has 125 DDS samples per period. More
+     * importantly, SYNC_CLK remains derived from the external reference and
+     * cannot disappear because an internal x20 PLL lost lock.
+     */
+    AD9959_writeDataSlow(FR1_ADD, 3, FR1_DATA);
+    AD9959_IOUpdate();
+    AD9959_delayMicros(AD9959_REFCLK_SETTLE_US);
 }
 
 /************************************************************
 ** 函数名称 ：void AD9959_IOInit(void)
 ** 函数功能 ：IO口电平状态初始化
 **************************************************************/
+void AD9959_busHiZ(void) {
+    uint32_t interruptState = __get_PRIMASK();
+
+    /*
+     * Do not drive an AD9959 that may still be unpowered. Driving CS, SCLK,
+     * SDIO, UPDATE or RESET before DVDD_I/O is valid can forward-bias the
+     * device's input protection diodes, partially power the chip and prevent
+     * a clean POR. The resulting state can survive an MCU reset and may only
+     * clear after the external DDS supply has discharged.
+     */
+    __disable_irq();
+    DL_GPIO_disableOutput(GPIO_DDS_DDS_SCLK_PORT,
+        GPIO_DDS_DDS_SCLK_PIN | GPIO_DDS_DDS_SDIO0_PIN |
+        GPIO_DDS_DDS_RST_PIN);
+    DL_GPIO_disableOutput(GPIO_DDS_DDS_CS_PORT, GPIO_DDS_DDS_CS_PIN);
+    DL_GPIO_disableOutput(
+        GPIO_DDS_DDS_UPDATE_PORT, GPIO_DDS_DDS_UPDATE_PIN);
+
+    DL_GPIO_initDigitalInputFeatures(GPIO_DDS_DDS_SCLK_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_DDS_DDS_SDIO0_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_DDS_DDS_CS_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_DDS_DDS_UPDATE_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
+    DL_GPIO_initDigitalInputFeatures(GPIO_DDS_DDS_RST_IOMUX,
+        DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
+        DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
+    if (interruptState == 0U) {
+        __enable_irq();
+    }
+}
+
 void AD9959_IOInit(void) {
+    uint32_t interruptState = __get_PRIMASK();
+
+    /*
+     * Re-apply the complete pin configuration, not only the output levels.
+     * The pins remain high impedance from boot until this function is called
+     * after the DDS supply has had time to become valid.
+     */
+    __disable_irq();
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_SCLK_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_SDIO0_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_CS_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_UPDATE_IOMUX);
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_RST_IOMUX);
+
+    DL_GPIO_clearPins(GPIO_DDS_DDS_SCLK_PORT,
+        GPIO_DDS_DDS_SCLK_PIN | GPIO_DDS_DDS_SDIO0_PIN |
+        GPIO_DDS_DDS_RST_PIN);
+    DL_GPIO_setPins(GPIO_DDS_DDS_CS_PORT, GPIO_DDS_DDS_CS_PIN);
+    DL_GPIO_clearPins(
+        GPIO_DDS_DDS_UPDATE_PORT, GPIO_DDS_DDS_UPDATE_PIN);
+
+    DL_GPIO_enableOutput(GPIO_DDS_DDS_SCLK_PORT,
+        GPIO_DDS_DDS_SCLK_PIN | GPIO_DDS_DDS_SDIO0_PIN |
+        GPIO_DDS_DDS_RST_PIN);
+    DL_GPIO_enableOutput(GPIO_DDS_DDS_CS_PORT, GPIO_DDS_DDS_CS_PIN);
+    DL_GPIO_enableOutput(
+        GPIO_DDS_DDS_UPDATE_PORT, GPIO_DDS_DDS_UPDATE_PIN);
+
     AD9959_CS_H;
     AD9959_SCLK_L;
     AD9959_UPDATE_L;
     AD9959_SDIO0_L;
+    if (interruptState == 0U) {
+        __enable_irq();
+    }
 }
 
 /************************************************************
@@ -85,9 +160,27 @@ void AD9959_reset(void) {
     AD9959_RST_L;
     AD9959_delayMicros(100);
     AD9959_RST_H;
-    AD9959_delayMicros(100);
+    AD9959_delayMicros(AD9959_RESET_HIGH_US);
     AD9959_RST_L;
     AD9959_delayMicros(AD9959_RESET_SETTLE_US);
+}
+
+void AD9959_holdReset(void) {
+    uint32_t interruptState = __get_PRIMASK();
+
+    /*
+     * Keep the external DDS in master reset for the complete PA15 DAC
+     * interval. This protects its PLL, serial controller and channel state
+     * while the 1 MS/s DAC/DMA path is repeatedly restarted.
+     */
+    __disable_irq();
+    DL_GPIO_initDigitalOutput(GPIO_DDS_DDS_RST_IOMUX);
+    DL_GPIO_setPins(GPIO_DDS_DDS_RST_PORT, GPIO_DDS_DDS_RST_PIN);
+    DL_GPIO_enableOutput(GPIO_DDS_DDS_RST_PORT, GPIO_DDS_DDS_RST_PIN);
+    if (interruptState == 0U) {
+        __enable_irq();
+    }
+    AD9959_delayMicros(10U);
 }
 
 /************************************************************
@@ -95,12 +188,18 @@ void AD9959_reset(void) {
 ** 函数功能 ： AD9959更新数据
 **************************************************************/
 void AD9959_IOUpdate(void) {
+    uint32_t interruptState = __get_PRIMASK();
+
+    __disable_irq();
     AD9959_UPDATE_L;
     AD9959_delayMicros(1U);
     AD9959_UPDATE_H;
     AD9959_delayMicros(AD9959_IO_UPDATE_PULSE_US);
     AD9959_UPDATE_L;
     AD9959_delayMicros(1U);
+    if (interruptState == 0U) {
+        __enable_irq();
+    }
 }
 
 /************************************************************
@@ -113,36 +212,13 @@ void AD9959_IOUpdate(void) {
 ** 函数说明 ：无
 **************************************************************/
 void AD9959_writeData(uint8_t regAddr, uint8_t regN, uint8_t* regData) {
-    uint8_t ctrlVal = 0;
-    uint8_t valToWrite = 0;
-    uint8_t regIndex = 0;
-    uint8_t i = 0;
-
-    ctrlVal = regAddr;
-    //写入地址
-    AD9959_SCLK_L;
-    AD9959_CS_L;
-    for (i = 0; i < 8; i++) {
-        AD9959_SCLK_L;
-        if (ctrlVal & 0x80) AD9959_SDIO0_H;
-        else AD9959_SDIO0_L;
-        AD9959_SCLK_H;
-        ctrlVal <<= 1;
-    }
-    AD9959_SCLK_L;
-    //写入数据
-    for (regIndex = 0; regIndex < regN; regIndex++) {
-        valToWrite = regData[regIndex];
-        for (i = 0; i < 8; i++) {
-            AD9959_SCLK_L;
-            if (valToWrite & 0x80) AD9959_SDIO0_H;
-            else AD9959_SDIO0_L;
-            AD9959_SCLK_H;
-            valToWrite <<= 1;
-        }
-        AD9959_SCLK_L;
-    }
-    AD9959_CS_H;
+    /*
+     * Use the timing-qualified path for every register transaction. The
+     * original zero-delay bit banging was marginal after the 1 MHz DAC/CCD
+     * session and could leave the write-only DDS reporting success in MCU
+     * state while CFTW/ACR/CPOW never reached the chip.
+     */
+    AD9959_writeDataSlow(regAddr, regN, regData);
 }
 
 /************************************************************
@@ -159,7 +235,15 @@ void AD9959_writeDataSlow(uint8_t regAddr, uint8_t regN, uint8_t* regData) {
     uint8_t valToWrite = 0;
     uint8_t regIndex = 0;
     uint8_t i = 0;
+    uint32_t interruptState = __get_PRIMASK();
 
+    /*
+     * A transaction must contain exactly 8 instruction clocks followed by
+     * the register data clocks while CS remains low. Keep the short bit-bang
+     * interval atomic so no unrelated interrupt can stretch it by milliseconds
+     * or leave the write half-finished during a state transition.
+     */
+    __disable_irq();
     ctrlVal = regAddr;
     //写入地址
     AD9959_SCLK_L;
@@ -192,6 +276,9 @@ void AD9959_writeDataSlow(uint8_t regAddr, uint8_t regN, uint8_t* regData) {
     }
     AD9959_CS_H;
     AD9959_delayMicros(1);
+    if (interruptState == 0U) {
+        __enable_irq();
+    }
 }
 
 /************************************************************
