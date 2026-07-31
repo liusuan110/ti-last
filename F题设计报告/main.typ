@@ -97,7 +97,7 @@
     [1 直通对角线], [$n=1, phi=0, A=B$], [斜率 $plus.minus 1$，8×8#[div] 对角线],
     [2 正交圆], [$n=1, phi=90 degree, A=B$], [`rho -> 0`，`amp -> 1`，直径 8#[div]],
     [3 二倍频"∞"], [$n=2, A=B$], [`holes -> 2`，`lr/ud -> 1`，幅度误差 $lt.eq 0.2$#[div]],
-    [4 幅度 2/4/6/8#[div]], [$V_"pp"= 1/2/3/4$#[V]], [示波器读数（峰峰值），误差 $lt.eq 0.2$#[div]],
+    [4 幅度 2/4/6/8#[div]], [$V_"pp"= 1\/2\/3\/4$#[V]], [示波器读数（峰峰值），误差 $lt.eq 0.2$#[div]],
     [5 三键自动], [自动进入 1/2/3 模式并完成提示], [控制时间 $lt.eq 10$#[s]，稳定时间 $gt.eq 5$#[s]，几何量达标],
   ),
   caption: [题目要求的指标分解与闭环观测量],
@@ -180,7 +180,7 @@ $ "POW"_(k+1) = "POW"_k + K_p e_k + K_i sum_(j=0)^k e_j. $
 
 *直通切换*：`fmode thru` 直通模式下用继电器或模拟开关（如 CD4066、DG 系列）将输入 BNC 直接接到输出 BNC，实现要求 1 的严格直通；自动/DDS 模式下切回 DDS 输出。
 
-*视觉与人机交互*：线性 CCD（TSL1401 系列 @tsl1401cl）固定在示波器屏幕前，通过遮光结构限定视场为一条竖直采样线；LEFT/MID/RIGHT 三键分别触发直线/圆/∞ 自动模式，编码器用于手动相位微调；RGB 状态灯与蜂鸣器给出声光提示。硬件全套原理图详见附录“硬件原理图”。
+*视觉与人机交互*：线性 CCD（TSL1401 系列 @tsl1401cl）固定在示波器屏幕前，通过遮光结构限定视场为一条竖直采样线；LEFT/MID/RIGHT 三键分别触发直线/圆/∞ 自动模式，编码器用于手动相位微调；RGB 状态灯与蜂鸣器给出声光提示。
 
 == 软件总体流程
 
@@ -345,20 +345,5 @@ $ "POW"_(k+1) = "POW"_k + K_p e_k + K_i sum_(j=0)^k e_j. $
     [`fmode quad`], [切换到同频正交输出],
     [`fdiv 8`], [切换到 8#[div] 目标幅度],
     [`fauto circle`], [进入自动圆模式],
-  )
-])
-
-#appendix("硬件原理图", [
-  #figure(
-    image("figures/broad/SCH_Schematic_1-core_2025-08-01.png", width: 95%),
-    caption: [硬件原理图（核心部分）],
-  )
-  #figure(
-    image("figures/broad/SCH_Schematic_2-power_2025-08-01.png", width: 95%),
-    caption: [硬件原理图（电源部分）],
-  )
-  #figure(
-    image("figures/broad/SCH_Schematic_3-extension_2025-08-01.png", width: 95%),
-    caption: [硬件原理图（扩展与接口部分）],
   )
 ])

@@ -73,21 +73,29 @@
   }
   // 表格：三线表风格（表名在表上，居中），caption 与 body 整体不可分页
   show figure.where(kind: table): it => [
-    #v(14pt)
+    #v(8pt)
     #align(center)[
-      #block[
-        #it.caption
-        #v(4pt)
-        #it.body
-      ]
+      #stack(
+        spacing: 2pt,
+        {
+          set text(font: ("Times New Roman", "SimSun"), size: 10.5pt)
+          [表#counter(figure.where(kind: table)).display("1")#h(0.5em)#it.caption.body]
+        },
+        it.body,
+      )
     ]
-    #v(14pt)
+    #v(8pt)
   ]
   // 图：图名在图下，居中
   show figure.where(kind: image): it => [
-    #v(14pt)
-    #align(center)[#it]
-    #v(14pt)
+    #v(8pt)
+    #align(center)[#it.body]
+    #v(2pt)
+    #align(center)[
+      #set text(font: ("Times New Roman", "SimSun"), size: 10.5pt)
+      图#counter(figure.where(kind: image)).display("1")#h(0.5em)#it.caption.body
+    ]
+    #v(8pt)
   ]
   show figure.where(kind: raw): it => [
     #v(8pt)
