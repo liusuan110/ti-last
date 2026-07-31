@@ -3,18 +3,22 @@
 #let abstract-page(
   body: content,
   keywords: array,
+  title: none,
 ) = {
-  v(1.2cm)
-  align(center)[
-    #text(font: ("Times New Roman", "SimHei"), size: 16pt, weight: "bold")[摘要]
-  ]
-  v(1cm)
-  text(font: ("Times New Roman", "SimSun"), size: 12pt, weight: "bold")[#body]
-
-  v(1cm)
+  if title != none {
+    v(22pt)
+    align(center)[
+      #set par(first-line-indent: 0em, spacing: 0pt, leading: 11.1pt)
+      #text(font: "SimSun", size: 16pt, weight: "bold", stroke: 0.06em)[#title]
+    ]
+    v(22pt)
+  } else {
+    v(22pt)
+  }
+  set par(first-line-indent: (amount: 0em, all: true), leading: 13.8pt, spacing: 0pt)
+  text(font: "SimSun", size: 14pt, weight: "bold", stroke: 0.05em)[摘要：] + text(font: "SimSun", size: 12pt)[#body]
+  v(22pt)
   let keyword_list = keywords.join("； ")
-  align(left)[
-    #text(font: ("Times New Roman", "SimSun"), size: 12pt)[*关键词：* #keyword_list]
-  ]
+  text(font: "SimSun", size: 14pt, weight: "bold", stroke: 0.05em)[关键词：] + text(font: "SimSun", size: 12pt)[#keyword_list]
   pagebreak()
 }
