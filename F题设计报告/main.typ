@@ -33,7 +33,7 @@ $arrow.r$ $n=1, phi=0, A=B$ 为对角线；$n=1, phi=90 degree, A=B$ 为圆；$n
 装置核心任务是 *对输出信号的频率倍数、相位、幅度进行精确、可闭环的控制*。系统划分为输入调理与测频、DDS 信号合成、输出放大与幅度标定、直通切换、UVC 视觉识别与自动控制五大模块。系统总体框图如 @fig-system。
 
 #figure(
-  image("figures/硬件框图.png", width: 70%),
+  image("figures/硬件框图new.png", width: 70%),
   caption: [装置系统总体框图],
 ) <fig-system>
 
