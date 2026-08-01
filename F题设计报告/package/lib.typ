@@ -25,7 +25,7 @@
   // 初始化相关页面、文本和段落样式
   set page(
     paper: "a4",
-    margin: (top: 2.5cm, bottom: 2.5cm, left: 3.2cm, right: 3.2cm),
+    margin: (top: 3cm, bottom: 3cm, left: 3.2cm, right: 3.2cm),
     footer: context {
       if counter(page).get().first() > 0 [
         #align(right)[
@@ -178,13 +178,12 @@
       show-information: show-information,
     )
   }
-  counter(page).update(0)
+  counter(page).update(1)
   abstract-page(
     body: abstract,
     keywords: keywords,
     title: if show-cover { none } else { problem-name + "设计报告" },
   )
-  counter(page).update(1)
   if show-outline {
     outline()
     pagebreak()
