@@ -1,4 +1,4 @@
-> 归档提示（2026-11-01）：此文为开题前模板清单，作为历史工作方法保留。原模板说明见 [整理前 README](https://github.com/liusuan110/ti-last/blob/0cfb725fba361fb958c790d13a437626d5d84539/README.md)，当前工程请从 [仓库首页](README.md)进入。
+> 开题前的工程准备清单。F题开发过程见[工程演进与测试记录](docs/ARCHIVE.md)。
 
 # 2026 电赛开题检查清单
 
