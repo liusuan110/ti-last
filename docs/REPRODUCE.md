@@ -2,6 +2,17 @@
 
 复现分成三段：先确认主控和 DDS 能工作，再跑电输入模式，最后接入相机完成光学自动控制。按这个顺序推进，每段都能留下一个清楚的观察结果。
 
+## 先取到工程，并确定在哪台主机运行
+
+```bash
+git clone https://github.com/liusuan110/ti-last.git
+cd ti-last
+```
+
+也可以在 GitHub 选择 Code → Download ZIP 后解压。下文的“仓库根目录”指同时包含 `ContestTemplate_2026.syscfg`、`User/` 和 `DK2500_vision/` 的这一层。
+
+开发电脑运行 CCS，连接 J-Link；DK/Linux 主机连接 UVC 摄像头和 USB-TTL，运行后面的 Python 命令。两边使用同一版本源码，硬件分工见[连接说明](HARDWARE.md)。
+
 ## 1. 导入主控工程
 
 工程记录的环境如下：
@@ -46,7 +57,7 @@ fmode same
 
 ## 3. 让相机先看清屏幕
 
-以下命令面向 DK/Linux 的 Python 3.10+ 环境。从仓库根目录进入视觉目录并安装依赖：
+在连接 UVC 摄像头和 USB-TTL 的 DK/Linux 主机上，使用 Python 3.10+。从这台主机上的仓库根目录进入视觉目录并安装依赖：
 
 ```bash
 cd DK2500_vision
@@ -61,15 +72,15 @@ python3 -m pip install opencv-python numpy pyserial
 python3 mjpeg_server.py --device /dev/video0 --width 1280 --height 960 --fps 60 --fourcc MJPG
 ```
 
-终端会输出 `camera_active`，其中列出相机实际采用的画幅、格式和帧率。打开[实时画面](http://127.0.0.1:8080/)或[单帧图像](http://127.0.0.1:8080/frame.jpg)，把屏幕轨迹完整放进 ROI，调整对焦、位置和曝光，使轨迹清晰、背景稳定。
+终端会输出 `camera_active`，其中列出相机实际采用的画幅、格式和帧率。在这台主机上打开[实时画面](http://127.0.0.1:8080/)或[单帧图像](http://127.0.0.1:8080/frame.jpg)，把屏幕轨迹完整放进 ROI，调整对焦、位置和曝光，使轨迹清晰、背景稳定。从另一台电脑查看时，把地址中的 `127.0.0.1` 换成 DK 主机 IP；主机内脚本的 `--url` 仍使用原地址。
 
 移动相机或改变缩放后，重新确定 ROI，并检查 HSV 阈值与 `frequency_scale`。先把这一帧看对，后面的测频和形状评分才有稳定输入。
 
 ## 4. 从按键启动光学自动控制
 
-从电输入模式切换过来时，先发送 `fmode off` 或复位 MCU，结束电锁相状态。随后将未知信号源只接到示波器 X 轴，断开装置 PA16 的电输入。Y 轴按实物链路接入 DAC 测频斜坡与 DDS 图形输出；两者在流程的不同阶段使用。
+从电输入模式切换过来时，先发送 `fmode off` 或复位 MCU，结束电锁相状态。随后将未知信号源只接到示波器 X 轴，断开装置 PA16 的电输入。按[光学模式接入表](HARDWARE.md#光学模式y-轴在两个阶段接收不同信号)检查 Y 轴的斜坡和 DDS 两条信号路径。
 
-保持相机服务运行，关闭串口终端，让按键服务接管 UART0。在另一个终端进入视觉目录：
+保持相机服务在第一个终端运行，关闭占用 UART0 的串口终端。在同一台 DK/Linux 主机的第二个终端进入 `DK2500_vision/`，启动按键服务：
 
 ```bash
 python3 requirement5_button_service.py --serial /dev/ttyUSB0 --config vision_config_mf500.json --url http://127.0.0.1:8080/frame.jpg --output-dir ./target_output
@@ -78,6 +89,8 @@ python3 requirement5_button_service.py --serial /dev/ttyUSB0 --config vision_con
 看到 `BUTTON_SERVICE_IDLE` 后，按 LEFT / MID / RIGHT，分别选择直线、圆和“∞”。终端会出现对应的 `BUTTON_SERVICE_START target=...`，随后运行测频、频率锁定和形状控制。整个过程从图像识别未知频率。
 
 默认幅度字为 489，稳定观察参数为 5 s。首次运行时，按当前放大链路校准 `--amplitude`。服务将 `--servo-duration` 设为 0，使视觉闭环持续工作；MCU 复位后回到按键监听。
+
+每次按键启动并持续保持一个目标。想从直线换成圆，先复位 MCU，等第二个终端重新出现 `BUTTON_SERVICE_IDLE`，再按 MID；换成“∞”则按 RIGHT。重新测试同一目标也按这个顺序操作。
 
 图形进入保持时，可以在对应日志中看到 `PHASE_SERVO_LOCKED`、`CIRCLE_SERVO_LOCKED` 或 `INFINITY_SERVO_LOCKED`。结合屏幕上的形状和后续帧，观察是否保持稳定。
 
